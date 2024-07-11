@@ -2,9 +2,14 @@
 pragma solidity ^0.8.0;
 
 import {Script} from "forge-std/Script.sol";
+import {MockV3Aggregator} from "../test/mocks/MockV3Aggregator.sol";
 
 contract HelperConfig is Script {
     uint256 public constant ETH_SEPOLIA_CHAIN_ID = 11155111;
+    uint256 public constant LOCAL_CHAIN_ID = 31337;
+
+    uint8 public constant DECIMALS = 8;
+    int256 public constant INITIAL_PRICE = 2000e8;
 
     NetworkConfig public activeNetworkConfig;
 
@@ -16,7 +21,7 @@ contract HelperConfig is Script {
         if (block.chainid == ETH_SEPOLIA_CHAIN_ID) {
             activeNetworkConfig = getSepoliaConfig();
         } else {
-            activeNetworkConfig = getAnvilConfig();
+            activeNetworkConfig = getOrCreateAnvilConfig();
         }
     }
 
@@ -27,7 +32,21 @@ contract HelperConfig is Script {
         return sepoliaConfig;
     }
 
-    function getAnvilConfig() public pure returns (NetworkConfig memory) {
-        // TODO
+    function getOrCreateAnvilConfig() public returns (NetworkConfig memory) {
+        if (activeNetworkConfig.priceFeed != address(0)) {
+            return activeNetworkConfig;
+        }
+
+        vm.startBroadcast();
+        MockV3Aggregator mockPriceFeed = new MockV3Aggregator(
+            DECIMALS,
+            INITIAL_PRICE
+        );
+        vm.stopBroadcast();
+
+        activeNetworkConfig = NetworkConfig({
+            priceFeed: address(mockPriceFeed)
+        });
+        return activeNetworkConfig;
     }
 }
